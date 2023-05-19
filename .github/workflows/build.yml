@@ -1,0 +1,56 @@
+# The name of the GitHub Actions workflow
+name: Build
+# When to build i.e. on pushes to main branch, pushes to pull requests, a published release
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  release:
+    types: [published]
+jobs:
+  # The name of the GitHub Actions job
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      # Checkout the Git repository
+      - uses: actions/checkout@v3
+      # Cache PlatformIO data to speed things up on repeated runs
+      - uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cache/pip
+            ~/.platformio/.cache
+          key: ${{ runner.os }}-pio
+      # Setup Python to install PlatformIO
+      - uses: actions/setup-python@v4
+        with:
+          python-version: "3.9"
+      # Set the WiFi credentials from GitHub Actions secrets on this repository
+      - uses: DamianReeves/write-file-action@v1.2
+        name: Write include/wifi_credentials.h
+        with:
+          path: include/wifi_credentials.h
+          contents: |
+            #define WIFI_SSID "${{ secrets.WIFI_SSID }}"
+            #define WIFI_PASSWORD "${{ secrets.WIFI_PASSWORD }}"
+      # Install PlatformIO CLI
+      - run: pip install --upgrade platformio
+      # Run PlatformIO CLI to build firmware
+      - run: pio run
+      # Upload firmware to the Raise.dev Console's raisedevs Workspace and arduino-esp8266-firmware-example Firmware
+      # only on a push to the main branch or published release
+      - uses: raisedevs/version-upload-action@main
+        id: version-upload
+        if: github.ref == 'refs/heads/main'
+        with:
+          workspace: raisedevs
+          firmware: arduino-esp8266-firmware-example
+          binary: .pio/build/esp8266/firmware.bin
+      # Output the name and some URLs for debugging and quick links
+      - name: Output Version details
+        if: ${{ github.ref == 'refs/heads/main' || github.event_name == 'release' && github.event.action == 'published' }}
+        run: |
+          echo Version Name: ${{ steps.version-upload.outputs.name }}
+          echo Version Show URL: ${{ steps.version-upload.outputs.show-url }}
+          echo Version Binary URL: ${{ steps.version-upload.outputs.binary-url }}

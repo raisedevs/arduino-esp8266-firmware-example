@@ -1,0 +1,8 @@
+version: 2
+
+# Get Dependabot to submit PRs for GitHub Actions
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: daily
